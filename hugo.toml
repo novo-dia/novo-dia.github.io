@@ -1,5 +1,5 @@
-title = "dabzr"
-theme = "hugo-theme-flat"
+title = "Novo dia"
+theme = "chicago7"
 themesDir = "themes"
 enableRobotsTXT = true
 hasCJKLanguage = true
