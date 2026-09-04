@@ -4,6 +4,11 @@ name: Deploy Hugo site to Pages
 on:
   # Runs on pushes targeting the default branch
   push:
+    paths-ignore:
+      - "images/**"
+      - "LICENSE"
+      - "Makefile"
+      - "README.md"
     branches: ["main"]
 
   # Allows you to run this workflow manually from the Actions tab
@@ -15,11 +20,10 @@ permissions:
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# Allow one concurrent deployment
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 # Default to bash
 defaults:
@@ -30,39 +34,49 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-latest
-    env:
-      HUGO_VERSION: 0.128.0
     steps:
-      - name: Install Hugo CLI
-        run: |
-          wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb \
-          && sudo dpkg -i ${{ runner.temp }}/hugo.deb
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
+        with:
+          hugo-version: '0.148.1'
+          extended: true
       - name: Install Dart Sass
-        run: sudo snap install dart-sass
+        env:
+          DART_SASS_VERSION: 1.89.2
+        run: |
+          curl -LJO https://github.com/sass/dart-sass/releases/download/${DART_SASS_VERSION}/dart-sass-${DART_SASS_VERSION}-linux-x64.tar.gz \
+          && tar -xf dart-sass-${DART_SASS_VERSION}-linux-x64.tar.gz \
+          && cp -r dart-sass/* /usr/local/bin \
+          && rm -rf dart-sass* \
+          && sass --embedded --version
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Setup Pages
         id: pages
-        uses: actions/configure-pages@v5
-      - name: Install Node.js dependencies
-        run: "[[ -f package-lock.json || -f npm-shrinkwrap.json ]] && npm ci || true"
+        uses: actions/configure-pages@v3
       - name: Build with Hugo
         env:
-          HUGO_CACHEDIR: ${{ runner.temp }}/hugo_cache
+          # For maximum backward compatibility with Hugo modules
           HUGO_ENVIRONMENT: production
+          HUGO_ENV: production
         run: |
           hugo \
+            --source exampleSite/ \
+            --theme ../.. \
             --minify \
             --baseURL "${{ steps.pages.outputs.base_url }}/"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./public
+          path: ./exampleSite/public
 
   # Deployment job
   deploy:
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
